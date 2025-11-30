@@ -84,6 +84,15 @@
             font-size: 72px;
             font-weight: 700;
         }
+
+        /* Hidden iframe for data bridge */
+        #dataFrame {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            opacity: 0;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
@@ -111,6 +120,9 @@
         </div>
     </div>
 
+    <!-- Hidden iframe to access localStorage from same domain -->
+    <iframe id="dataFrame" src="api.html"></iframe>
+
     <script>
         const circle = document.querySelector('.segment-yes');
         const yesText = document.getElementById('yesText');
@@ -122,89 +134,88 @@
         let currentYesVotes = 0;
         let currentNoVotes = 0;
 
-        function updatePolling() {
-            try {
-                const stored = localStorage.getItem('pollingData');
-                if (!stored) return;
-                
-                const data = JSON.parse(stored);
-                const yesVotes = data.ya || 0;
-                const noVotes = data.tidak || 0;
-                const total = yesVotes + noVotes;
+        console.log('🚀 Polling Display loaded - OBS Compatible');
 
-                // Only update if data changed
-                if (currentYesVotes === yesVotes && currentNoVotes === noVotes) {
-                    return;
-                }
-
-                currentYesVotes = yesVotes;
-                currentNoVotes = noVotes;
-                totalVotesEl.textContent = total;
-
-                console.log(`Update: Ya=${yesVotes}, Tidak=${noVotes}, Total=${total}`);
-
-                if (total === 0) {
-                    circle.style.strokeDashoffset = circumference;
-                    yesText.style.display = 'none';
-                    noText.style.display = 'none';
-                    return;
-                }
-
-                const yesPercent = (yesVotes / total) * 100;
-                const noPercent = (noVotes / total) * 100;
-                const offset = circumference - (yesPercent / 100) * circumference;
-
-                circle.style.strokeDashoffset = offset;
-
-                // Calculate positions for text
-                const yesAngle = (yesPercent / 100) * 360 / 2;
-                const noAngle = 180 + (noPercent / 100) * 360 / 2;
-
-                // Position Yes text
-                if (yesPercent > 5) {
-                    yesText.style.display = 'block';
-                    const yesRad = (yesAngle - 90) * (Math.PI / 180);
-                    const yesX = 300 + 300 * Math.cos(yesRad);
-                    const yesY = 300 + 300 * Math.sin(yesRad);
-                    yesText.style.left = yesX + 'px';
-                    yesText.style.top = yesY + 'px';
-                    yesText.querySelector('.percent').textContent = yesPercent.toFixed(1) + '%';
-                } else {
-                    yesText.style.display = 'none';
-                }
-
-                // Position No text
-                if (noPercent > 5) {
-                    noText.style.display = 'block';
-                    const noRad = (noAngle - 90) * (Math.PI / 180);
-                    const noX = 300 + 300 * Math.cos(noRad);
-                    const noY = 300 + 300 * Math.sin(noRad);
-                    noText.style.left = noX + 'px';
-                    noText.style.top = noY + 'px';
-                    noText.querySelector('.percent').textContent = noPercent.toFixed(1) + '%';
-                } else {
-                    noText.style.display = 'none';
-                }
-            } catch (e) {
-                console.error('Error updating polling:', e);
+        // Listen for messages from iframe
+        window.addEventListener('message', (event) => {
+            // Security check - only accept from same origin
+            if (event.origin !== window.location.origin) {
+                return;
             }
-        }
 
-        // Listen for storage changes from other tabs/windows
-        window.addEventListener('storage', (e) => {
-            if (e.key === 'pollingData') {
-                console.log('Storage event detected');
-                updatePolling();
+            if (event.data && event.data.type === 'polling_data') {
+                console.log('📩 Received data from iframe:', event.data.data);
+                processPollingData(event.data.data);
             }
         });
 
-        // Poll for changes frequently for same-window updates
-        setInterval(updatePolling, 100);
+        // Request data from iframe every 300ms
+        setInterval(() => {
+            const iframe = document.getElementById('dataFrame');
+            if (iframe && iframe.contentWindow) {
+                iframe.contentWindow.postMessage({type: 'get_data'}, '*');
+            }
+        }, 300);
 
-        // Initial update
-        updatePolling();
+        function processPollingData(data) {
+            const yesVotes = data.ya || 0;
+            const noVotes = data.tidak || 0;
+            const total = yesVotes + noVotes;
 
-        console.log('Polling Display loaded - Vercel version');
+            // Only update if data changed
+            if (currentYesVotes === yesVotes && currentNoVotes === noVotes) {
+                return;
+            }
+
+            currentYesVotes = yesVotes;
+            currentNoVotes = noVotes;
+            totalVotesEl.textContent = total;
+
+            console.log(`✅ Update: Ya=${yesVotes}, Tidak=${noVotes}, Total=${total}`);
+
+            if (total === 0) {
+                circle.style.strokeDashoffset = circumference;
+                yesText.style.display = 'none';
+                noText.style.display = 'none';
+                return;
+            }
+
+            const yesPercent = (yesVotes / total) * 100;
+            const noPercent = (noVotes / total) * 100;
+            const offset = circumference - (yesPercent / 100) * circumference;
+
+            circle.style.strokeDashoffset = offset;
+
+            // Calculate positions for text
+            const yesAngle = (yesPercent / 100) * 360 / 2;
+            const noAngle = 180 + (noPercent / 100) * 360 / 2;
+
+            // Position Yes text
+            if (yesPercent > 5) {
+                yesText.style.display = 'block';
+                const yesRad = (yesAngle - 90) * (Math.PI / 180);
+                const yesX = 300 + 300 * Math.cos(yesRad);
+                const yesY = 300 + 300 * Math.sin(yesRad);
+                yesText.style.left = yesX + 'px';
+                yesText.style.top = yesY + 'px';
+                yesText.querySelector('.percent').textContent = yesPercent.toFixed(1) + '%';
+            } else {
+                yesText.style.display = 'none';
+            }
+
+            // Position No text
+            if (noPercent > 5) {
+                noText.style.display = 'block';
+                const noRad = (noAngle - 90) * (Math.PI / 180);
+                const noX = 300 + 300 * Math.cos(noRad);
+                const noY = 300 + 300 * Math.sin(noRad);
+                noText.style.left = noX + 'px';
+                noText.style.top = noY + 'px';
+                noText.querySelector('.percent').textContent = noPercent.toFixed(1) + '%';
+            } else {
+                noText.style.display = 'none';
+            }
+        }
     </script>
 </body>
 </html>

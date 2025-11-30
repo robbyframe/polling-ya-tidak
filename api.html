@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Polling API Bridge</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #00ff00;
+        }
+        pre {
+            background: #000;
+            padding: 15px;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <h2>🔗 Polling API Bridge - Active</h2>
+    <p>Status: <span id="status">Listening...</span></p>
+    <p>Last Update: <span id="lastUpdate">-</span></p>
+    <h3>Current Data:</h3>
+    <pre id="data">{}</pre>
+
+    <script>
+        console.log('🔗 API Bridge loaded');
+
+        function getData() {
+            try {
+                const data = localStorage.getItem('pollingData');
+                return data ? JSON.parse(data) : {ya: 0, tidak: 0, timestamp: Date.now()};
+            } catch (e) {
+                return {ya: 0, tidak: 0, timestamp: Date.now()};
+            }
+        }
+
+        function updateDisplay() {
+            const data = getData();
+            document.getElementById('data').textContent = JSON.stringify(data, null, 2);
+            document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+        }
+
+        function sendDataToParent() {
+            const data = getData();
+            window.parent.postMessage({
+                type: 'polling_data',
+                data: data
+            }, '*');
+        }
+
+        // Listen for requests from parent (display.html)
+        window.addEventListener('message', (event) => {
+            if (event.data && event.data.type === 'get_data') {
+                console.log('📤 Sending data to parent');
+                sendDataToParent();
+            }
+        });
+
+        // Listen for storage changes
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'pollingData') {
+                console.log('📊 Storage changed, notifying parent');
+                updateDisplay();
+                sendDataToParent();
+                document.getElementById('status').textContent = 'Updated!';
+                setTimeout(() => {
+                    document.getElementById('status').textContent = 'Listening...';
+                }, 1000);
+            }
+        });
+
+        // Auto-send data every 500ms
+        setInterval(() => {
+            sendDataToParent();
+            updateDisplay();
+        }, 500);
+
+        // Initial update
+        updateDisplay();
+        sendDataToParent();
+
+        console.log('✅ API Bridge ready');
+    </script>
+</body>
+</html>
