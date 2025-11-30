@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polling Control Panel</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 25px;
+            border-radius: 12px;
+            color: white;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stat-value {
+            font-size: 48px;
+            font-weight: 700;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 15px 30px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-reset {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-reset:hover {
+            background: #dc2626;
+            transform: translateY(-2px);
+        }
+
+        .btn-vote {
+            background: #10b981;
+            color: white;
+            flex: 1;
+        }
+
+        .btn-vote:hover {
+            background: #059669;
+            transform: translateY(-2px);
+        }
+
+        .btn-vote.no {
+            background: #6b7280;
+        }
+
+        .btn-vote.no:hover {
+            background: #4b5563;
+        }
+
+        .url-box {
+            background: #dbeafe;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        .url-box h3 {
+            color: #1e40af;
+            margin-bottom: 15px;
+        }
+
+        .url-display {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            color: #1e40af;
+            word-break: break-all;
+            font-size: 14px;
+            border: 2px solid #93c5fd;
+            margin-bottom: 10px;
+        }
+
+        .copy-btn {
+            background: #3b82f6;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .copy-btn:hover {
+            background: #2563eb;
+        }
+
+        .status {
+            background: #dcfce7;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border-left: 4px solid #10b981;
+        }
+
+        .instructions {
+            background: #fef3c7;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border-left: 4px solid #f59e0b;
+        }
+
+        .instructions h3 {
+            color: #92400e;
+            margin-bottom: 10px;
+        }
+
+        .instructions ol {
+            color: #78350f;
+            line-height: 1.8;
+            margin-left: 20px;
+            margin-top: 10px;
+        }
+
+        .instructions li {
+            margin-bottom: 8px;
+        }
+
+        .instructions strong {
+            color: #dc2626;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Polling Control Panel</h1>
+            
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-label">Ya</div>
+                    <div class="stat-value" id="yesCount">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Tidak</div>
+                    <div class="stat-value" id="noCount">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total</div>
+                    <div class="stat-value" id="totalCount">0</div>
+                </div>
+            </div>
+
+            <div class="controls">
+                <button class="btn-reset" onclick="resetPolling()">🔄 Reset Polling</button>
+                <button class="btn-vote" onclick="addVote('ya')">👍 Test Vote: Ya</button>
+                <button class="btn-vote no" onclick="addVote('tidak')">👎 Test Vote: Tidak</button>
+            </div>
+
+            <div class="status" id="statusBox">
+                ✅ Sistem siap. Klik test vote, lalu copy URL untuk OBS!
+            </div>
+
+            <div class="url-box">
+                <h3>🔗 URL untuk OBS (Copy URL ini!):</h3>
+                <div class="url-display" id="displayUrl">Loading...</div>
+                <button class="copy-btn" onclick="copyUrl()">📋 Copy URL ke Clipboard</button>
+            </div>
+        </div>
+
+        <div class="instructions">
+            <h3>📝 Cara Penggunaan:</h3>
+            <ol>
+                <li>Klik tombol <strong>"Test Vote: Ya"</strong> atau <strong>"Tidak"</strong> untuk menambah vote</li>
+                <li>Setelah vote, <strong>URL di atas akan otomatis update</strong> dengan data terbaru</li>
+                <li>Klik tombol <strong>"Copy URL ke Clipboard"</strong></li>
+                <li>Di OBS: Add Source → Browser → Paste URL → Set 1920x1080</li>
+                <li><strong>PENTING:</strong> Setiap kali ada perubahan vote, URL akan berubah. Copy URL baru dan update di OBS dengan refresh Browser Source!</li>
+                <li>Untuk reset polling: Klik <strong>"Reset Polling"</strong>, lalu copy URL baru</li>
+            </ol>
+            <p style="margin-top: 15px; color: #dc2626; font-weight: 600;">
+                💡 URL berisi data polling di parameter, jadi OBS bisa langsung baca tanpa perlu localStorage!
+            </p>
+        </div>
+    </div>
+
+    <script>
+        function loadPollingData() {
+            try {
+                const stored = localStorage.getItem('pollingData');
+                if (stored) {
+                    return JSON.parse(stored);
+                }
+            } catch (e) {
+                console.error('Error loading:', e);
+            }
+            return {ya: 0, tidak: 0};
+        }
+
+        function savePollingData(data) {
+            try {
+                localStorage.setItem('pollingData', JSON.stringify(data));
+                updateDisplayUrl(data);
+                return true;
+            } catch (e) {
+                console.error('Error saving:', e);
+                return false;
+            }
+        }
+
+        function updateDisplayUrl(data) {
+            const baseUrl = window.location.origin + '/display.html';
+            const url = `${baseUrl}?ya=${data.ya}&tidak=${data.tidak}`;
+            document.getElementById('displayUrl').textContent = url;
+        }
+
+        function updateStats() {
+            const data = loadPollingData();
+            document.getElementById('yesCount').textContent = data.ya || 0;
+            document.getElementById('noCount').textContent = data.tidak || 0;
+            document.getElementById('totalCount').textContent = (data.ya || 0) + (data.tidak || 0);
+            updateDisplayUrl(data);
+        }
+
+        function resetPolling() {
+            if (confirm('Reset polling ke 0? Semua vote akan dihapus.\n\nSetelah reset, COPY URL BARU untuk OBS!')) {
+                savePollingData({ya: 0, tidak: 0});
+                updateStats();
+                document.getElementById('statusBox').textContent = '🔄 Polling direset! Sekarang COPY URL baru di atas untuk OBS';
+            }
+        }
+
+        function addVote(type) {
+            const data = loadPollingData();
+            if (type === 'ya') {
+                data.ya = (data.ya || 0) + 1;
+            } else {
+                data.tidak = (data.tidak || 0) + 1;
+            }
+            savePollingData(data);
+            updateStats();
+            document.getElementById('statusBox').textContent = `✅ Vote "${type}" ditambahkan! URL sudah diupdate - Copy URL untuk OBS!`;
+        }
+
+        function copyUrl() {
+            const url = document.getElementById('displayUrl').textContent;
+            navigator.clipboard.writeText(url).then(() => {
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = '✅ URL Tersalin!';
+                btn.style.background = '#10b981';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.style.background = '#3b82f6';
+                }, 2000);
+            }).catch(() => {
+                alert('Gagal copy otomatis. Silakan copy manual dari kotak di atas.');
+            });
+        }
+
+        setInterval(updateStats, 500);
+        updateStats();
+
+        console.log('Polling Control Panel loaded');
+    </script>
+</body>
+</html>
