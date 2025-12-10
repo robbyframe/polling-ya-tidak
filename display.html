@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920, height=1080">
+    <title>Polling Display - OBS</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 1920px;
+            height: 1080px;
+            background: transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+
+        .container {
+            position: relative;
+            width: 600px;
+            height: 600px;
+        }
+
+        svg {
+            transform: rotate(-90deg);
+        }
+
+        .donut-segment {
+            fill: none;
+            stroke-width: 80;
+            transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .segment-bg {
+            stroke: rgba(255, 255, 255, 0.15);
+        }
+
+        .segment-yes {
+            stroke: rgba(255, 255, 255, 0.95);
+            filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.5));
+        }
+
+        .percent-label {
+            position: absolute;
+            color: white;
+            font-weight: 700;
+            text-shadow: 
+                0 2px 10px rgba(0, 0, 0, 0.5),
+                0 0 30px rgba(255, 255, 255, 0.3);
+            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .percent-value {
+            font-size: 48px;
+            line-height: 1;
+            margin-bottom: 5px;
+        }
+
+        .percent-title {
+            font-size: 24px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            opacity: 0.9;
+        }
+
+        .yes-label {
+            right: -120px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .no-label {
+            left: -120px;
+            top: 50%;
+            transform: translateY(-50%);
+            text-align: right;
+        }
+
+        .center-info {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: white;
+        }
+
+        .total-votes {
+            font-size: 72px;
+            font-weight: 700;
+            line-height: 1;
+            text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .total-label {
+            font-size: 20px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            margin-top: 10px;
+            opacity: 0.8;
+        }
+
+        /* Pulse animation saat ada vote baru */
+        @keyframes pulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.05); }
+        }
+
+        .center-info.pulse {
+            animation: pulse 0.5s ease-in-out;
+        }
+
+        /* Loading state */
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 24px;
+            font-weight: 600;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Hide jika tidak ada vote */
+        .hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="loading" id="loading">Memuat data...</div>
+
+    <div class="container" id="chart" style="opacity: 0;">
+        <svg width="600" height="600">
+            <!-- Background circle -->
+            <circle class="donut-segment segment-bg" cx="300" cy="300" r="240" 
+                    stroke-dasharray="1507.96" stroke-dashoffset="0" />
+            
+            <!-- Yes segment (white) -->
+            <circle id="yesCircle" class="donut-segment segment-yes" cx="300" cy="300" r="240" 
+                    stroke-dasharray="1507.96" stroke-dashoffset="1507.96" />
+        </svg>
+
+        <!-- Yes percentage -->
+        <div class="percent-label yes-label" id="yesLabel">
+            <div class="percent-value" id="yesPercent">0%</div>
+            <div class="percent-title">Ya</div>
+        </div>
+
+        <!-- No percentage -->
+        <div class="percent-label no-label" id="noLabel">
+            <div class="percent-value" id="noPercent">0%</div>
+            <div class="percent-title">Tidak</div>
+        </div>
+
+        <!-- Center total -->
+        <div class="center-info" id="centerInfo">
+            <div class="total-votes" id="totalVotes">0</div>
+            <div class="total-label">Total Vote</div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://qeoszqrunkgqkoolqbpa.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFlb3N6cXJ1bmtncWtvb2xxYnBhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2MDQzMTgsImV4cCI6MjA4MDE4MDMxOH0.h_Xnid8Jnnmi-yr3YraB-I9GhTX-H6b9952hO90Mqxg';
+
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        const yesCircle = document.getElementById('yesCircle');
+        const yesLabel = document.getElementById('yesLabel');
+        const noLabel = document.getElementById('noLabel');
+        const yesPercent = document.getElementById('yesPercent');
+        const noPercent = document.getElementById('noPercent');
+        const totalVotes = document.getElementById('totalVotes');
+        const centerInfo = document.getElementById('centerInfo');
+        const chart = document.getElementById('chart');
+        const loading = document.getElementById('loading');
+
+        const circumference = 2 * Math.PI * 240; // 1507.96
+        let lastTotal = 0;
+
+        async function fetchData() {
+            try {
+                const { data, error } = await supabase
+                    .from('polling')
+                    .select('*')
+                    .eq('id', 1)
+                    .single();
+
+                if (error) throw error;
+
+                const ya = data.ya || 0;
+                const tidak = data.tidak || 0;
+                const total = ya + tidak;
+
+                // Hide loading, show chart
+                if (chart.style.opacity === '0') {
+                    loading.classList.add('hidden');
+                    chart.style.transition = 'opacity 0.5s ease';
+                    chart.style.opacity = '1';
+                }
+
+                // Update display
+                updateDisplay(ya, tidak, total);
+
+                // Pulse animation saat ada vote baru
+                if (total > lastTotal) {
+                    centerInfo.classList.add('pulse');
+                    setTimeout(() => centerInfo.classList.remove('pulse'), 500);
+                }
+
+                lastTotal = total;
+
+            } catch (e) {
+                console.error('Error fetching data:', e);
+            }
+        }
+
+        function updateDisplay(ya, tidak, total) {
+            if (total === 0) {
+                // No votes yet
+                yesCircle.style.strokeDashoffset = circumference;
+                yesPercent.textContent = '0%';
+                noPercent.textContent = '0%';
+                totalVotes.textContent = '0';
+                return;
+            }
+
+            const yaPct = (ya / total) * 100;
+            const tidakPct = (tidak / total) * 100;
+
+            // Update donut chart
+            const offset = circumference - (yaPct / 100) * circumference;
+            yesCircle.style.strokeDashoffset = offset;
+
+            // Update percentages
+            yesPercent.textContent = yaPct.toFixed(1) + '%';
+            noPercent.textContent = tidakPct.toFixed(1) + '%';
+
+            // Update total
+            totalVotes.textContent = total;
+
+            // Position labels (optional: bisa di-adjust untuk follow arc)
+            // Untuk sekarang tetap di kiri-kanan
+        }
+
+        // Realtime subscription
+        supabase
+            .channel('polling-display')
+            .on('postgres_changes', 
+                { event: 'UPDATE', schema: 'public', table: 'polling', filter: 'id=eq.1' },
+                (payload) => {
+                    console.log('🔥 Realtime update received');
+                    fetchData();
+                }
+            )
+            .subscribe();
+
+        // Fetch every 500ms for ultra-responsive updates
+        setInterval(fetchData, 500);
+
+        // Initial fetch
+        fetchData();
+
+        console.log('✅ Display ready - Waiting for votes...');
+    </script>
+</body>
+</html>
